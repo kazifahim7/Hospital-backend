@@ -39,6 +39,7 @@ app.get('/', (req: Request, res: Response) => {
           status: 'success',
           service: 'Doctor Tracker Clinical Backend API',
           version: '1.0.0',
+          databaseConfigured: Boolean(process.env.DATABASE_URL),
           endpoints: {
                auth: '/api/v1/auth/login',
                doctors: '/api/v1/doctor',
