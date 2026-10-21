@@ -8,18 +8,21 @@ import fs from "fs";
 
 const app: Application = express();
 
+import os from "os";
+
 // Safe creation of uploads folder (safeguarded for read-only serverless environments like Vercel)
 try {
-     const uploadsPath = path.join(process.cwd(), "uploads");
+     const uploadsPath = process.env.VERCEL
+          ? path.join(os.tmpdir(), "uploads")
+          : path.join(process.cwd(), "uploads");
+
      if (!fs.existsSync(uploadsPath)) {
           fs.mkdirSync(uploadsPath, { recursive: true });
           console.log("📁 'uploads' folder created successfully!");
-     } else {
-          console.log("✅ 'uploads' folder already exists.");
      }
      app.use("/uploads", express.static(uploadsPath));
 } catch (e) {
-     console.log("⚠️ Serverless environment detected: uploads directory handled via memory/cloud.");
+     console.log("⚠️ Serverless environment detected: uploads directory handled safely.");
 }
 
 // Parser

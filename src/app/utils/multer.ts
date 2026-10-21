@@ -1,18 +1,24 @@
 import fs from 'fs';
 import path from "path";
+import os from "os";
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import config from '../config/index.js'; 
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// ---------- Local Upload Directory ----------
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+// ---------- Upload Directory (Safe for local and Vercel serverless /tmp) ----------
+const UPLOAD_DIR = process.env.VERCEL
+    ? path.join(os.tmpdir(), 'uploads')
+    : path.join(process.cwd(), 'uploads');
 
-// ensure upload folder exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Ensure upload folder exists safely without crashing read-only serverless filesystems
+try {
+    if (!fs.existsSync(UPLOAD_DIR)) {
+        fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+} catch (err) {
+    console.warn("Upload directory initialization bypassed for serverless:", err);
 }
 
 // ---------- Multer disk storage ----------
@@ -32,10 +38,10 @@ export const upload = multer({ storage });
 
 // ---------- AWS S3 CLIENT ----------
 const s3 = new S3Client({
-    region: process.env.AWS_REGION!,
+    region: process.env.AWS_REGION || 'us-east-1',
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'dummy_key',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'dummy_secret',
     }
 });
 
@@ -47,29 +53,29 @@ export const uploadToS3 = async (file: any) => {
     const fileContent = fs.readFileSync(filePath);
 
     const params = {
-        Bucket: process.env.AWS_BUCKET_NAME!,
+        Bucket: process.env.AWS_BUCKET_NAME || 'saharan-image',
         Key: file.filename,
         Body: fileContent,
         ContentType: file.mimetype,
-        // ACL removed
     };
 
     try {
         // Upload to S3
         await s3.send(new PutObjectCommand(params));
 
-        // Delete local file after successful upload
+        // Delete local temporary file after successful upload
         fs.unlink(filePath, (err) => {
             if (err) console.error("Local file delete failed:", err);
         });
 
-        return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${file.filename}`;
+        return `https://${process.env.AWS_BUCKET_NAME || 'saharan-image'}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${file.filename}`;
     } catch (err) {
         console.error("S3 Upload failed:", err);
-        throw err; // prevent returning a broken URL
+        throw err;
     }
 };
-// ---------- Local URL fallback (optional) ----------
-export const getLocalImageURL = (filename:string) => {
-    return `https://predeficient-walton-rotatively.ngrok-free.dev/uploads/${filename}`;
+
+// ---------- Local URL fallback ----------
+export const getLocalImageURL = (filename: string) => {
+    return `/uploads/${filename}`;
 };
