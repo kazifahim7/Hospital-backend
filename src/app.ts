@@ -3,12 +3,12 @@ import cors from 'cors';
 import notFound from './app/middleware/notFound.js';
 import globalErrorHandler from './app/middleware/globalErrorHandler.js';
 import router from './app/router/index.js';
+import connectDB from './app/db/index.js';
 import path from "path";
 import fs from "fs";
+import os from "os";
 
 const app: Application = express();
-
-import os from "os";
 
 // Safe creation of uploads folder (safeguarded for read-only serverless environments like Vercel)
 try {
@@ -33,10 +33,7 @@ app.use(cors({
      credentials: true
 }));
 
-// API routes
-app.use("/api/v1", router);
-
-// Root health check route
+// Root health check route (responds instantly without waiting for database)
 app.get('/', (req: Request, res: Response) => {
      res.json({
           status: 'success',
@@ -53,6 +50,24 @@ app.get('/', (req: Request, res: Response) => {
           timestamp: new Date().toISOString()
      });
 });
+
+// Database connection middleware - GUARANTEES DB is connected BEFORE any /api/v1 route runs!
+app.use(async (req, res, next) => {
+     try {
+          await connectDB();
+          next();
+     } catch (err: any) {
+          console.error("❌ Database connection error on request:", err.message);
+          return res.status(503).json({
+               success: false,
+               message: "Database connection unavailable. Please verify DATABASE_URL and MongoDB Atlas Network Access (0.0.0.0/0).",
+               error: err.message
+          });
+     }
+});
+
+// API routes (Mounted AFTER database connection middleware)
+app.use("/api/v1", router);
 
 // Error handling
 app.use(notFound);
