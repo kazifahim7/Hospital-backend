@@ -1,0 +1,26 @@
+import nodemailer from 'nodemailer';
+import config from '../config/index.js';
+
+const emailSender = async (email: string, subject: string, html: string) => {
+     const transporter = nodemailer.createTransport({
+          host: `${config.SES_HOST}`,
+          port: 587,
+          secure: false, 
+          auth: {
+               user: `${config.SES_USER}`, 
+               pass: `${config.SES_PASS}`, 
+          },
+          tls: { rejectUnauthorized: false }
+     });
+
+     const info = await transporter.sendMail({
+          from: `"saharan" <${config.SES_FROM}>`, 
+          to: email,
+          subject: subject,
+          html: html,
+     });
+
+     console.log("Message sent: %s", info.messageId);
+};
+
+export default emailSender;
