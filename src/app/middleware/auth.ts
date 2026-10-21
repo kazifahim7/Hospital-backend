@@ -11,17 +11,18 @@ import { userModel } from "../modules/auth/auth.model.js"
 
 const auth = (...roles: string[]) => {
      return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-          //  <-get Toke->
-          const token = req.headers.authorization
-          if (!token) {
+          //  <-get Token->
+          const rawToken = req.headers.authorization;
+          if (!rawToken) {
                throw new AppError(401, "Authorization token missing");
-
           }
-          const decoded = jwt.verify(token, config.jwt_secret as string) as JwtPayload
+
+          const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7).trim() : rawToken.trim();
+
+          const decoded = jwt.verify(token, config.jwt_secret as string) as JwtPayload;
 
           if (!decoded) {
                throw new AppError(401, "invalid token , please press logout button and login again...");
-
           }
 
           const { role, email } = decoded
